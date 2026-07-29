@@ -1,0 +1,44 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate project
+        run: |
+          plutil -lint BatteryInsightPro/Info.plist
+          plutil -lint BatteryInsightProWidget/Info.plist
+          xcodebuild -list -project BatteryInsightPro.xcodeproj
+
+      - name: Build app
+        run: |
+          xcodebuild build \
+            -project BatteryInsightPro.xcodeproj \
+            -scheme BatteryInsightPro \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Package IPA
+        run: |
+          mkdir -p build/Payload
+          cp -R build/Build/Products/Release-iphoneos/BatteryInsightPro.app build/Payload/
+          ditto -c -k --sequesterRsrc --keepParent build/Payload build/BatteryInsightPro-unsigned.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: BatteryInsightPro-IPA-unsigned
+          path: build/BatteryInsightPro-unsigned.ipa
+          retention-days: 14
